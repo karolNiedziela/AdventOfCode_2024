@@ -1,16 +1,47 @@
-﻿var matrix = GetMatrixFromFile();
+﻿using Day4;
 
-DisplayMatrix(matrix);
+// Part 1
 
-static char[,] GetMatrixFromFile()
+var searchedWord = "XMAS";
+
+var totalOccurencesPart1 = Part1GetTotalOccurences(searchedWord);
+
+Console.WriteLine($"Total occurences of the word '{searchedWord}' in the matrix: {totalOccurencesPart1}");
+
+// Part 2
+
+var totalOccurencesPart2 = GetXMASInXShapeOccurences();
+
+Console.WriteLine($"Total occurences of the word 'MAS/SAM' in the matrix: {totalOccurencesPart2}");
+
+Console.ReadKey();
+
+ static int Part1GetTotalOccurences(string searchedWord)
 {
-    var lines = File.ReadAllLines(Path.Combine(Directory.GetCurrentDirectory(), "test_input.txt"));
+    var matrix = GetMatrixFromFile("input.txt");
+
+    var matrixService = new MatrixService(searchedWord, matrix);
+
+    var horizontalOccurences = matrixService.GetOccurencesOfWordHorizontally();
+    var verticalOccurences = matrixService.GetOccurencesOfWordVertically();
+    var diagonalOccurences = matrixService.GetOccurencesOfWordDiagonally();
+    var backwardHorizontalOccurences = matrixService.GetOccurencesOfWordHorizontallyBackward();
+    var backwardVerticalOccurences = matrixService.GetOccurencesOfWordVerticallBackward();
+
+    var totalOccurences = horizontalOccurences + verticalOccurences + diagonalOccurences + backwardHorizontalOccurences + backwardVerticalOccurences;
+
+    return totalOccurences;
+}
+
+static char[,] GetMatrixFromFile(string fileName)
+{
+    var lines = File.ReadAllLines(Path.Combine(Directory.GetCurrentDirectory(), fileName));
     var matrix = new char[lines.Length, lines[0].Length];
 
-    for (int row = 0; row < lines.Length; row++)
+    for (var row = 0; row < lines.Length; row++)
     {
         var charArray = lines[row].ToCharArray();
-        for (int col = 0; col < charArray.Length; col++)
+        for (var col = 0; col < charArray.Length; col++)
         {
             matrix[row, col] = charArray[col];
         }
@@ -19,14 +50,38 @@ static char[,] GetMatrixFromFile()
     return matrix;
 }
 
-static void DisplayMatrix(char[,] matrix)
+static int GetXMASInXShapeOccurences()
 {
-    for (int row = 0; row < matrix.GetLength(0); row++)
+    var matrix = GetMatrixFromFile("input_2.txt");
+
+    var occurences = 0;
+
+    for (var row = 0; row < matrix.GetLength(0) - 2; row++)
     {
-        for (int col = 0; col < matrix.GetLength(1); col++)
+        for (var col = 0; col < matrix.GetLength(1) - 2; col++)
         {
-            Console.Write(matrix[row, col]);
+            var lettersSequence = new char[3, 3];
+
+            foreach (var sequenceRow in Enumerable.Range(0, 3))
+            {
+                foreach (var sequenceCol in Enumerable.Range(0, 3))
+                {
+                    lettersSequence[sequenceRow, sequenceCol] = matrix[sequenceRow + row, sequenceCol + col];
+                }
+            }
+
+           var MAS = new MatrixService("MAS", lettersSequence);
+           var SAM = new MatrixService("SAM", lettersSequence);
+
+            var MASDiagonalOccurences = MAS.GetOccurencesOfWordDiagonally();
+            var SAMDiagonalOccurences = SAM.GetOccurencesOfWordDiagonally();
+
+            if (MASDiagonalOccurences == 2 || SAMDiagonalOccurences == 2)
+            {
+                occurences++;
+            }
         }
-        Console.WriteLine();
     }
+
+    return occurences;
 }
