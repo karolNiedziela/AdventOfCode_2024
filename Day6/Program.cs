@@ -2,24 +2,36 @@
 
 const char Obstacle = '#';
 
-//var matrix = GetMatrixFromFile("test_input.txt");
-var matrix = GetMatrixFromFile("input.txt");
-
-var guardMatrix = new char[matrix.GetLength(0), matrix.GetLength(1)];
-FillGuardMatrix(guardMatrix, '.', matrix);
-
+var indicators = new char[] { (char)Direction.Up, (char)Direction.Down, (char)Direction.Left, (char)Direction.Right };
 var horizontalIndicators = new char[] { (char)Direction.Left, (char)Direction.Right };
 var verticalIndicators = new char[] { (char)Direction.Up, (char)Direction.Down };
 
-GetGuardPositionsInMatrix(matrix, horizontalIndicators, verticalIndicators, guardMatrix, 0);
+// Part 1
+
+var inputMatrix = GetMatrixFromFile("test_input.txt");
+//var inputMatrix = GetMatrixFromFile("input.txt");
+
+var guardMatrix = new char[inputMatrix.GetLength(0), inputMatrix.GetLength(1)];
+FillGuardMatrix(guardMatrix, '.', inputMatrix);
+
+GetGuardPositionsInMatrix(inputMatrix, horizontalIndicators, verticalIndicators, guardMatrix, 0);
 
 var guardOccurences = CountOccurencesOfGuardPosition(guardMatrix);
 
 Console.WriteLine($"Guard occured {guardOccurences} times.");
 
+// Part 2
+
+inputMatrix = GetMatrixFromFile("test_input.txt");
+//inputMatrix = GetMatrixFromFile("input.txt");
+
+var infitiveLoops = CountInfitiveLoops(inputMatrix);
+
+Console.WriteLine($"Found {infitiveLoops} positions to cause infitive loop.");
+
 Console.ReadKey();
 
-static char[,] GetMatrixFromFile(string fileName)
+char[,] GetMatrixFromFile(string fileName)
 {
     var lines = File.ReadAllLines(Path.Combine(Directory.GetCurrentDirectory(), fileName));
     var matrix = new char[lines.Length, lines[0].Length];
@@ -36,7 +48,7 @@ static char[,] GetMatrixFromFile(string fileName)
     return matrix;
 }
 
-static void FillGuardMatrix(char[,] guardMatrix, char fillChar, char[,] inputMatrix)
+void FillGuardMatrix(char[,] guardMatrix, char fillChar, char[,] inputMatrix)
 {
     for (var row = 0; row < guardMatrix.GetLength(0); row++)
     {
@@ -52,7 +64,7 @@ static void FillGuardMatrix(char[,] guardMatrix, char fillChar, char[,] inputMat
     }
 }
 
-static void GetGuardPositionsInMatrix(char[,] matrix, char[] horizontalIndicators, char[] verticalIndicators, char[,] guardMatrix, int collisionIndex)
+void GetGuardPositionsInMatrix(char[,] matrix, char[] horizontalIndicators, char[] verticalIndicators, char[,] guardMatrix, int collisionIndex)
 {
     if (collisionIndex == -1)
     {
@@ -64,81 +76,52 @@ static void GetGuardPositionsInMatrix(char[,] matrix, char[] horizontalIndicator
     {
         for (var col = 0; col < matrix.GetLength(1); col++)
         {
-            if (verticalIndicators.Contains(matrix[row, col]))
+            if (!indicators.Contains(matrix[row, col]))
             {
-                var guardPosition = row;
-                var direction = GetDirection(matrix[row, col]);
-                var singleCol = GetOrderedColumn(matrix, col, direction);
-                collisionIndex = GetCollisionIndex(direction, singleCol, row);
+                continue;
+            }
 
-                if (collisionIndex == -1)
-                {
-                    if (direction == Direction.Down)
-                    {
-                        MarkGuardPositionsInCol(guardMatrix, guardPosition, matrix.GetLength(0) - 1, col);
-                    }
-                    else
-                    {
-                        MarkGuardPositionsInCol(guardMatrix, 0, guardPosition, col);
-                    }
+            var direction = GetDirection(matrix[row, col]);
+            var guardPosition = verticalIndicators.Contains(matrix[row, col]) ? row : col;
+            var singleColOrRow = verticalIndicators.Contains(matrix[row, col]) ? 
+                GetOrderedColumn(matrix, col, direction) : 
+                GetOrderedRow(matrix, row, direction);
+            collisionIndex = verticalIndicators.Contains(matrix[row, col]) ? 
+                GetCollisionIndex(direction, singleColOrRow, row) :
+                GetCollisionIndex(direction, singleColOrRow, guardPosition);
 
-                    break;
-                }
+            if (collisionIndex == -1)
+            {
+                MarkGuardPositionWhenLeaving(direction, matrix, guardPosition, row, col);
+                break;
+            }
 
-                if (direction == Direction.Down)
-                {
-                    MarkGuardPositionsInCol(guardMatrix, guardPosition, collisionIndex - 1, col);
-                    matrix[row, col] = '.';
-                    matrix[collisionIndex - 1, col] = GetTurnedIndicatorRight90Degrees(direction);
-                }
-                else
-                {
-                    MarkGuardPositionsInCol(guardMatrix, collisionIndex + 1, guardPosition, col);
-                    matrix[row, col] = '.';
-                    matrix[collisionIndex + 1, col] = GetTurnedIndicatorRight90Degrees(direction);
-                }
+            if (verticalIndicators.Contains(matrix[row, col]))
+            {                         
+                matrix[row, col] = '.';
+                var rowWithIndicator = direction == Direction.Down ?
+                    collisionIndex - 1 :
+                    collisionIndex + 1;
 
-                CountOccurencesOfGuardPosition(guardMatrix);
-                DisplayMatrix(matrix);
+                matrix[rowWithIndicator, col] = GetTurnedIndicatorRight90Degrees(direction);
+                var startIndex = direction == Direction.Down ? guardPosition : collisionIndex + 1;
+                var endIndex = direction == Direction.Down ? collisionIndex - 1 : guardPosition;
+                MarkGuardPositionsInCol(guardMatrix, startIndex, endIndex, col);
+
                 break;
             }
 
             if (horizontalIndicators.Contains(matrix[row, col]))
-            {
-                var guardPosition = col;
-                var direction = GetDirection(matrix[row, col]);
-                var singleRow = GetOrderedRow(matrix, row, direction);
-                collisionIndex = GetCollisionIndex(direction, singleRow, guardPosition);
+            {            
+                matrix[row, col] = '.';
+                var colWithIndicator = direction == Direction.Right ?
+                    collisionIndex - 1 :
+                    collisionIndex + 1;
+                matrix[row, colWithIndicator] = GetTurnedIndicatorRight90Degrees(direction);
+                var startIndex = direction == Direction.Right ? guardPosition : collisionIndex + 1;
+                var endIndex = direction == Direction.Right ? collisionIndex - 1 : guardPosition;
+                MarkGuardPositionsInRow(guardMatrix, startIndex, endIndex, row);
 
-                if (collisionIndex == -1)
-                {
-                    if (direction == Direction.Right)
-                    {
-                        MarkGuardPositionsInRow(guardMatrix, guardPosition, matrix.GetLength(1) - 1, row);
-                    }
-                    else
-                    {
-                        MarkGuardPositionsInRow(guardMatrix, 0, guardPosition, row);
-                    }
-
-                    break;
-                }
-
-                if (direction == Direction.Right)
-                {
-                    MarkGuardPositionsInRow(guardMatrix, guardPosition, collisionIndex - 1, row);
-                    matrix[row, col] = '.';
-                    matrix[row, collisionIndex - 1] = GetTurnedIndicatorRight90Degrees(direction);
-                }
-                else
-                {
-                    MarkGuardPositionsInRow(guardMatrix, collisionIndex + 1, guardPosition, row);
-                    matrix[row, col] = '.';
-                    matrix[row, collisionIndex + 1] = GetTurnedIndicatorRight90Degrees(direction);
-                }
-
-                CountOccurencesOfGuardPosition(guardMatrix);
-                DisplayMatrix(matrix);
                 break;
             }
         }
@@ -147,8 +130,128 @@ static void GetGuardPositionsInMatrix(char[,] matrix, char[] horizontalIndicator
     GetGuardPositionsInMatrix(matrix, horizontalIndicators, verticalIndicators, guardMatrix, collisionIndex);
 }
 
+void MarkGuardPositionWhenLeaving(Direction direction, char[,] matrix, int guardPosition, int row, int col)
+{
+    switch (direction)
+    {
+        case Direction.Down:
+            MarkGuardPositionsInCol(guardMatrix, guardPosition, matrix.GetLength(0) - 1, col);
+            break;
+        case Direction.Up:
+            MarkGuardPositionsInCol(guardMatrix, 0, guardPosition, col);
+            break;
+        case Direction.Left:
+            MarkGuardPositionsInRow(guardMatrix, 0, guardPosition, row);
+            break;
+        case Direction.Right:
+            MarkGuardPositionsInRow(guardMatrix, guardPosition, matrix.GetLength(1) - 1, row);
+            break;
+    }
+}
 
-static Direction GetDirection(char indicator)
+int CountInfitiveLoops(char[,] inputMatrix)
+{
+    var infitiveLoops = 0;
+    var visitedLocations = new List<(int Row, int Col, Direction Direction)>();
+
+    for (var row = 0; row < inputMatrix.GetLength(0); row++)
+    {
+        for (var col = 0; col < inputMatrix.GetLength(1); col++)
+        {
+            if (inputMatrix[row, col] == Obstacle)
+            {
+                continue;
+            }
+
+            if (indicators.Contains(inputMatrix[row, col]))
+            {
+                continue;
+            }
+
+            var matrixCopy = (char[,])inputMatrix.Clone();
+            matrixCopy[row, col] = Obstacle;
+            Console.WriteLine($"Obstacle placed [{row}, {col}].");
+            if (IsCausingInfitiveLoop(matrixCopy, horizontalIndicators, verticalIndicators, 0, visitedLocations))
+            {
+                infitiveLoops++;
+            }
+            visitedLocations.Clear();
+        }
+    }
+
+    return infitiveLoops;
+}
+
+bool IsCausingInfitiveLoop(char[,] matrixCopy, char[] horizontalIndicators, char[] verticalIndicators, int collisionIndex, List<(int Row, int Col, Direction Direction)> visitedLocations)
+{
+    if (collisionIndex == -1)
+    {        
+        return false;
+    }
+
+    for (var row = 0; row < matrixCopy.GetLength(0); row++)
+    {
+        for (var col = 0; col < matrixCopy.GetLength(1); col++)
+        {
+            if (!indicators.Contains(matrixCopy[row, col])) 
+            {
+                continue;
+            }
+
+            var direction = GetDirection(matrixCopy[row, col]);
+            var alreadyVisited = visitedLocations.Any(x => x.Row == row && x.Col == col && x.Direction == direction);
+            if (alreadyVisited)
+            {
+                return true;
+            }
+            else
+            {
+                visitedLocations.Add((row, col, direction));
+            }
+
+            if (verticalIndicators.Contains(matrixCopy[row, col]))
+            {           
+                var singleCol = GetOrderedColumn(matrixCopy, col, direction);
+                collisionIndex = GetCollisionIndex(direction, singleCol, row);
+                if (collisionIndex == -1)
+                {      
+                    break;
+                }
+
+                matrixCopy[row, col] = '.';
+                var rowWithIndicator = direction == Direction.Down ?
+                    collisionIndex - 1 :
+                    collisionIndex + 1;
+
+                matrixCopy[rowWithIndicator, col] = GetTurnedIndicatorRight90Degrees(direction);
+                break;
+            }
+
+            if (horizontalIndicators.Contains(matrixCopy[row, col]))
+            {
+                var guardPosition = col;               
+                var singleRow = GetOrderedRow(matrixCopy, row, direction);
+                collisionIndex = GetCollisionIndex(direction, singleRow, guardPosition);
+
+                if (collisionIndex == -1)
+                {
+                    break;
+                }
+
+                matrixCopy[row, col] = '.';
+                var colWithIndicator = direction == Direction.Right ?
+                    collisionIndex - 1 :
+                    collisionIndex + 1;
+                matrixCopy[row, colWithIndicator] = GetTurnedIndicatorRight90Degrees(direction);            
+                break;
+            }           
+        }
+    }
+
+    return IsCausingInfitiveLoop(matrixCopy, horizontalIndicators, verticalIndicators, collisionIndex, visitedLocations);
+}
+
+Direction GetDirection(char indicator)
 {
     return indicator switch
     {
@@ -160,7 +263,7 @@ static Direction GetDirection(char indicator)
     };
 }
 
-static char[] GetOrderedColumn(char[,] matrix, int col, Direction direction)
+char[] GetOrderedColumn(char[,] matrix, int col, Direction direction)
 {
     var column = new char[matrix.GetLength(0)];
     for (var row = 0; row < matrix.GetLength(0); row++)
@@ -171,7 +274,7 @@ static char[] GetOrderedColumn(char[,] matrix, int col, Direction direction)
     return column;
 }
 
-static char[] GetOrderedRow(char[,] matrix, int row, Direction direction)
+char[] GetOrderedRow(char[,] matrix, int row, Direction direction)
 {
     var rowArray = new char[matrix.GetLength(1)];
     for (var col = 0; col < matrix.GetLength(1); col++)
@@ -182,61 +285,34 @@ static char[] GetOrderedRow(char[,] matrix, int row, Direction direction)
     return rowArray;
 }
 
-static int GetCollisionIndex(Direction direction, char[] rowOrCol, int guardPosition)
+int GetCollisionIndex(Direction direction, char[] rowOrCol, int guardPosition)
 {
-    if (direction == Direction.Down)
-    {
-        var elementsToCheck = rowOrCol.Skip(guardPosition).ToList();
-        var index = elementsToCheck.FindIndex(x => x == Obstacle);
-        if (index == -1)
-        {
-            return index;
-        }
+    var elementsToCheck = new List<char>();
+    var obstacleIndex = -1;
+    var downAndRightDirections = new Direction[] { Direction.Down, Direction.Right };
 
-        return index + guardPosition;
+    if (downAndRightDirections.Contains(direction))
+    {
+        elementsToCheck = rowOrCol.Skip(guardPosition).ToList();
+        obstacleIndex = elementsToCheck.FindIndex(x => x == Obstacle);
+    }
+    else
+    {
+        elementsToCheck = rowOrCol.Take(guardPosition + 1).ToList();
+        obstacleIndex = elementsToCheck.FindLastIndex(x => x == Obstacle);
     }
 
-    if (direction == Direction.Up)
+    if (obstacleIndex == -1)
     {
-        var elementsToCheck = rowOrCol.Take(guardPosition + 1).ToList();
-        var index = elementsToCheck.FindLastIndex(x => x == Obstacle);
-        if (index == -1)
-        {
-            return index;
-        }
-
-        return index;
+        return obstacleIndex;
     }
 
-    if (direction == Direction.Right)
-    {
-        var elementsToCheck = rowOrCol.Skip(guardPosition).ToList();
-        var index = elementsToCheck.FindIndex(x => x == Obstacle);
-
-        if (index == -1)
-        {
-            return index;
-        }
-
-        return index + guardPosition;
-    }
-
-    if (direction == Direction.Left)
-    {
-        var elementsToCheck = rowOrCol.Take(guardPosition + 1).ToList();
-        var index = elementsToCheck.FindLastIndex(x => x == Obstacle);
-        if (index == -1)
-        {
-            return index;
-        }
-
-        return index;
-    }
-
-    return -1;
+    return downAndRightDirections.Contains(direction) ? 
+        obstacleIndex + guardPosition : 
+        obstacleIndex;    
 }
 
-static void MarkGuardPositionsInCol(char[,] guardMatrix, int startIndex, int endIndex, int collisionCol)
+void MarkGuardPositionsInCol(char[,] guardMatrix, int startIndex, int endIndex, int collisionCol)
 {
     for (var row = 0; row < guardMatrix.GetLength(0); row++)
     {
@@ -248,11 +324,9 @@ static void MarkGuardPositionsInCol(char[,] guardMatrix, int startIndex, int end
             }
         }
     }
-
-    DisplayMatrix(guardMatrix);
 }
 
-static void MarkGuardPositionsInRow(char[,] guardMatrix, int startIndex, int endIndex, int collisionRow)
+void MarkGuardPositionsInRow(char[,] guardMatrix, int startIndex, int endIndex, int collisionRow)
 {
     for (var row = 0; row < guardMatrix.GetLength(0); row++)
     {
@@ -264,9 +338,8 @@ static void MarkGuardPositionsInRow(char[,] guardMatrix, int startIndex, int end
             }
         }
     }
-    DisplayMatrix(guardMatrix);
 }
-static void DisplayMatrix(char[,] matrix)
+void DisplayMatrix(char[,] matrix)
 {
     for (var row = 0; row < matrix.GetLength(0); row++)
     {
@@ -279,7 +352,7 @@ static void DisplayMatrix(char[,] matrix)
     Console.WriteLine();
 }
 
-static char GetTurnedIndicatorRight90Degrees(Direction direction)
+char GetTurnedIndicatorRight90Degrees(Direction direction)
 {
     return direction switch
     {
@@ -290,7 +363,7 @@ static char GetTurnedIndicatorRight90Degrees(Direction direction)
         _ => throw new ArgumentException("Invalid direction")
     };
 }
-static int CountOccurencesOfGuardPosition(char[,] guardMatrix)
+int CountOccurencesOfGuardPosition(char[,] guardMatrix)
 {
     var guardOccurences = 0;
 
