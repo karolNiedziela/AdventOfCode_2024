@@ -1,11 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Text;
+﻿const int DotAsNumber = -1;
 
-const int DotAsNumber = -1;
-
-var input = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "test_input.txt")).ToCharArray();
-//var input = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "input.txt")).ToCharArray();
-
+//var input = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "test_input.txt")).ToCharArray();
+var input = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "input.txt")).ToCharArray();
 
 
 // Part 1
@@ -20,9 +16,7 @@ Console.WriteLine($"Part 1: {part1Checksum}");
 
 layoutOfFilesAndFreeSpace = GetLayoutOfFilesAndFreeSpace(input);
 
-var previousLayout = GetLayoutOfFilesAndFreeSpace(input);
-
-var part2Checksum = GetPart2Checksum(previousLayout, layoutOfFilesAndFreeSpace, 0);
+var part2Checksum = GetPart2Checksum(layoutOfFilesAndFreeSpace);
 
 Console.WriteLine($"Part 2: {part2Checksum}");
 
@@ -73,76 +67,95 @@ long GetPart1Checksum(List<int> layoutOfFilesAndFreeSpace)
         layoutOfFilesAndFreeSpace[lastNumberIndex] = DotAsNumber;
     }
 
-    var arrangedLayout = layoutOfFilesAndFreeSpace.Where(c => c != DotAsNumber).ToList();
-    var checksum = 0L;
-
-    for (var i = 0; i < arrangedLayout.Count; i++)
-    {
-        checksum += long.Parse(arrangedLayout[i].ToString()) * i;
-    }
-
-    return checksum;
+    return CalculateChecksum(layoutOfFilesAndFreeSpace);
 }
 
-long GetPart2Checksum(List<int> previousLayoutOfFilesAndFreeSpace, List<int> layoutOfFilesAndFreeSpace, int sameListOccurrences)
+long GetPart2Checksum(List<int> layoutOfFilesAndFreeSpace)
 {
-    var usedNumbers = new List<int>();
-    for (var i = 0; i < layoutOfFilesAndFreeSpace.Count; i++)
+    var dotSubsequences = GetDotSubsequences(layoutOfFilesAndFreeSpace);
+
+    var groupedNumbers = layoutOfFilesAndFreeSpace
+       .Where(x => x != DotAsNumber)
+       .GroupBy(x => x)
+       .Select(g =>
+       {
+           var startIndex = layoutOfFilesAndFreeSpace.IndexOf(g.Key);
+           var endIndex = layoutOfFilesAndFreeSpace.LastIndexOf(g.Key);
+           var length = endIndex - startIndex + 1;
+           return new
+           {
+               Number = g.Key,
+               Length = length,
+               StartIndex = startIndex,
+               EndIndex = endIndex
+           };
+       })
+       .ToList();
+
+    for (var j = groupedNumbers.Count - 1; j > 0; j--)
     {
-        if (layoutOfFilesAndFreeSpace[i] != DotAsNumber)
+        foreach (var subsequence in dotSubsequences)
         {
-            continue;
-        }
-
-        var substringOfRemainingNumbers = layoutOfFilesAndFreeSpace.Skip(i).Where(x => x != DotAsNumber).ToArray();
-        if (substringOfRemainingNumbers.Length == 0)
-        {
-            break;
-        }
-
-        var groupedNumbers = substringOfRemainingNumbers
-          .GroupBy(x => x)
-          .Where(x => !usedNumbers.Contains(x.Key))
-          .Select(g =>
-          {
-              var startIndex = layoutOfFilesAndFreeSpace.IndexOf(g.Key, i);
-              var endIndex = layoutOfFilesAndFreeSpace.LastIndexOf(g.Key);
-              var length = endIndex - startIndex + 1;
-              return new
-              {
-                  Number = g.Key,
-                  Length = length,
-                  StartIndex = startIndex,
-                  EndIndex = endIndex
-              };
-          })
-          .ToList();
-
-        var emptySpaceLength = groupedNumbers[0].StartIndex - i;
-        if (emptySpaceLength < 0)
-        {
-            break;
-        }
-
-        for (var j = groupedNumbers.Count - 1; j > 0; j--)
-        {
-            if (groupedNumbers[j].Length <= emptySpaceLength)
+            if (groupedNumbers[j].Length <= subsequence.Length && groupedNumbers[j].StartIndex > subsequence.StartIndex)
             {
                 for (var k = 0; k < groupedNumbers[j].Length; k++)
                 {
-                    layoutOfFilesAndFreeSpace[k + i] = groupedNumbers[j].Number;
+                    layoutOfFilesAndFreeSpace[k + subsequence.StartIndex] = groupedNumbers[j].Number;
                     layoutOfFilesAndFreeSpace[groupedNumbers[j].StartIndex + k] = DotAsNumber;
-                    usedNumbers.Add(groupedNumbers[j].Number);
                 }
-
                 break;
             }
         }
 
-        Console.WriteLine(string.Join(string.Empty, layoutOfFilesAndFreeSpace));
+        dotSubsequences = GetDotSubsequences(layoutOfFilesAndFreeSpace);
     }
 
-
-    return 0L;
+    return CalculateChecksum(layoutOfFilesAndFreeSpace);
 }
 
+
+List<(int StartIndex, int Length)> GetDotSubsequences(List<int> layoutOfFilesAndFreeSpace) 
+{
+    var dotSubsequences = new List<(int StartIndex, int Length)>();
+    int startIndex = -1;
+
+    for (int i = 0; i < layoutOfFilesAndFreeSpace.Count; i++)
+    {
+        if (layoutOfFilesAndFreeSpace[i] == DotAsNumber)
+        {
+            if (startIndex == -1)
+            {
+                startIndex = i;
+            }
+        }
+        else
+        {
+            if (startIndex != -1)
+            {
+                dotSubsequences.Add((startIndex, i - startIndex));
+                startIndex = -1;
+            }
+        }
+    }
+
+    if (startIndex != -1)
+    {
+        dotSubsequences.Add((startIndex, layoutOfFilesAndFreeSpace.Count - startIndex));
+    }
+
+    return dotSubsequences;
+}
+
+long CalculateChecksum(List<int> layoutOfFilesAndFreeSpace)
+{
+    var checksum = 0L;
+    for (var i = 0; i < layoutOfFilesAndFreeSpace.Count; i++)
+    {
+        if (layoutOfFilesAndFreeSpace[i] != DotAsNumber)
+        {
+            checksum += layoutOfFilesAndFreeSpace[i] * i;
+        }
+    }
+
+    return checksum;
+}
